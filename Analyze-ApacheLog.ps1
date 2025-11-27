@@ -412,9 +412,10 @@ try {
             Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
             throw
         }
-        if (($groupIdx % 10) -eq 0 -or $groupIdx -eq $countryGroups.Count) {
-            $pct = 5 + [int](($groupIdx / $countryGroups.Count) * 28)
-            Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by country ($groupIdx/$($countryGroups.Count))" -PercentComplete $pct
+        $groupCount = @($countryGroups).Count
+        if (($groupIdx % 10) -eq 0 -or $groupIdx -eq $groupCount) {
+            $pct = if ($groupCount -gt 0) { 5 + [int](($groupIdx / $groupCount) * 28) } else { 5 }
+            Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by country ($groupIdx/$groupCount)" -PercentComplete $pct
         }
     }
 } catch {
@@ -428,6 +429,7 @@ try {
 } catch {
     Write-Warning "[ERROR] Failed during country stats sorting: $($_.Exception.Message)"
     Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
+    Write-Warning "[ERROR] Stack trace: $($_.ScriptStackTrace)"
     throw
 }
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Preparing city keys" -PercentComplete 33
@@ -463,9 +465,10 @@ try {
             Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
             throw
         }
-        if (($groupIdx % 10) -eq 0 -or $groupIdx -eq $cityGroups.Count) {
-            $pct = 33 + [int](($groupIdx / $cityGroups.Count) * 33)
-            Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by city ($groupIdx/$($cityGroups.Count))" -PercentComplete $pct
+        $groupCount = @($cityGroups).Count
+        if (($groupIdx % 10) -eq 0 -or $groupIdx -eq $groupCount) {
+            $pct = if ($groupCount -gt 0) { 33 + [int](($groupIdx / $groupCount) * 33) } else { 33 }
+            Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by city ($groupIdx/$groupCount)" -PercentComplete $pct
         }
     }
 } catch {
@@ -478,6 +481,7 @@ try {
 } catch {
     Write-Warning "[ERROR] Failed during city stats sorting: $($_.Exception.Message)"
     Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
+    Write-Warning "[ERROR] Stack trace: $($_.ScriptStackTrace)"
     throw
 }
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by page" -PercentComplete 66
@@ -499,9 +503,10 @@ try {
             Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
             throw
         }
-        if ($pageGroups.Count -gt 0 -and (($groupIdx % 10) -eq 0 -or $groupIdx -eq $pageGroups.Count)) {
-            $pct = 66 + [int](($groupIdx / $pageGroups.Count) * 34)
-            Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by page ($groupIdx/$($pageGroups.Count))" -PercentComplete $pct
+        $groupCount = @($pageGroups).Count
+        if ($groupCount -gt 0 -and (($groupIdx % 10) -eq 0 -or $groupIdx -eq $groupCount)) {
+            $pct = if ($groupCount -gt 0) { 66 + [int](($groupIdx / $groupCount) * 34) } else { 66 }
+            Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by page ($groupIdx/$groupCount)" -PercentComplete $pct
         }
     }
 } catch {
@@ -516,6 +521,7 @@ try {
 } catch {
     Write-Warning "[ERROR] Failed during page stats sorting: $($_.Exception.Message)"
     Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
+    Write-Warning "[ERROR] Stack trace: $($_.ScriptStackTrace)"
     throw
 }
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Done" -PercentComplete 100
@@ -583,7 +589,7 @@ if ($startTime -and $endTime) {
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('| Rank | Country            | ISO | Unique IPs | Requests | Bar                            |')
 [void]$sb.AppendLine('|------|--------------------|----|------------|----------|--------------------------------|')
-if ($countryStats.Count -gt 0) {
+if (@($countryStats).Count -gt 0) {
     $rank = 1
     foreach ($c in ($countryStats | Select-Object -First 10)) {
         $countryName = $c.CountryName.PadRight(18)
@@ -606,7 +612,7 @@ if ($countryStats.Count -gt 0) {
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('| Rank | Country            | City                   | Unique IPs | Requests |')
 [void]$sb.AppendLine('|------|--------------------|-----------------------|------------|----------|')
-if ($cityStatsTop.Count -gt 0) {
+if (@($cityStatsTop).Count -gt 0) {
     $rank = 1
     foreach ($ct in $cityStatsTop) {
         $countryName = $ct.CountryName.PadRight(18)
@@ -628,7 +634,7 @@ if ($cityStatsTop.Count -gt 0) {
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('| Rank | Page (Path)                                      | Unique IPs | Pageviews | Bar                            |')
 [void]$sb.AppendLine('|------|--------------------------------------------------|------------|-----------|--------------------------------|')
-if ($pageStatsTop.Count -gt 0) {
+if (@($pageStatsTop).Count -gt 0) {
     $rank = 1
     foreach ($pg in $pageStatsTop) {
         $pagePath = $pg.PageKey.PadRight(48)
