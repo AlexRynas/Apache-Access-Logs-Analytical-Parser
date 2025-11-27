@@ -18,10 +18,11 @@ A small, self-contained Apache access log analyzer for Windows. It uses a PowerS
 
 1. Download the ZIP of this GitHub repo and unzip anywhere.
 2. Place your Apache access log files (`*.log`, `*.txt`) into the `logs` folder.
-   - If the folder doesn’t exist yet, run the script once; it will create `logs/` and ask you to re-run after adding files.
+   - If the folder doesn't exist yet, run the script once; it will create `logs/` and ask you to re-run after adding files.
 3. Double-click `run_report.bat`.
-4. If prompted, paste your Geoapify API key. The script will save it to `config.json`.
-5. When done, open `report.md` for the analytics.
+4. **Optional**: When prompted, enter a partial URL to filter analytics for a specific page (e.g., "2025EarthPartnerPrize"), or press Enter to analyze all pages.
+5. If prompted, paste your Geoapify API key. The script will save it to `config.json`.
+6. When done, open the generated report file (e.g., `report_2025-11-01_to_2025-11-07.md`) for the analytics.
 
 ### Alternative: Run from PowerShell
 
@@ -29,6 +30,10 @@ A small, self-contained Apache access log analyzer for Windows. It uses a PowerS
 cd "d:\Projects\Apache-Access-Logs-Analytical-Parser"
 powershell -ExecutionPolicy Bypass -File ".\Analyze-ApacheLog.ps1"
 ```
+
+The script will interactively prompt you for:
+1. **Page filter** (optional) - Enter a partial URL to analyze only specific pages, or press Enter to skip
+2. **Geoapify API key** (if not already saved in `config.json`)
 
 ### Optional: Provide API key via environment variable
 
@@ -39,7 +44,10 @@ powershell -ExecutionPolicy Bypass -File ".\Analyze-ApacheLog.ps1"
 
 ## Output Files
 
-- `report.md` – the generated Markdown report (overwrites each run)
+- **Report file** – Generated with a dynamic name based on the time period and page filter (if used):
+  - `report_2025-11-01_to_2025-11-07.md` (for logs spanning multiple days)
+  - `report_2025-11-27.md` (for logs from a single day)
+  - `report_2025-11-01_to_2025-11-07_2025EarthPartnerPrize.md` (when using `-PageFilter`)
 - `config.json` – stores your Geoapify API key
 - `ip_cache.json` – caches IP → Country/City to reduce API calls
 

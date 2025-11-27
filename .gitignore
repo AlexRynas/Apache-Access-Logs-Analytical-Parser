@@ -2,3 +2,4 @@ config.json
 logs/*
 ip_cache.json
 report.md
+reports/*

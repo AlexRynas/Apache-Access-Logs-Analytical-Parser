@@ -9,7 +9,6 @@ $ScriptRoot = Split-Path -Parent $PSCommandPath
 $LogDir     = Join-Path $ScriptRoot "logs"
 $ConfigPath = Join-Path $ScriptRoot "config.json"
 $CachePath  = Join-Path $ScriptRoot "ip_cache.json"
-$ReportPath = Join-Path $ScriptRoot "report.md"
 
 # Precompile the Apache combined log line regex for performance
 $script:ApacheLogPattern = '^(?<ip>\S+)\s+\S+\s+\S+\s+\[(?<time>[^\]]+)\]\s+"(?<method>\S+)\s+(?<url>\S+)\s+(?<protocol>[^"]+)"\s+(?<status>\d{3})\s+(?<bytes>\S+)\s+"(?<referrer>[^"]*)"\s+"(?<agent>[^"]*)"'
@@ -38,6 +37,21 @@ if (-not $logFiles -or $logFiles.Count -eq 0) {
     Write-Info "No log files found in $LogDir. Place files (*.log, *.txt) and run again."
     exit 0
 }
+
+# 2.5) Prompt for optional page filter
+$PageFilter = ""
+Write-Host ""
+Write-Host "Optional: Enter a partial URL to filter analytics for a specific page."
+Write-Host "Example: '2025SomePage' to analyze only pages containing that text."
+Write-Host "Press Enter to skip and analyze all pages."
+$userInput = Read-Host "Page filter (or press Enter to skip)"
+if ($userInput -and $userInput.Trim().Length -gt 0) {
+    $PageFilter = $userInput.Trim()
+    Write-Info "Page filter set to: '$PageFilter'"
+} else {
+    Write-Info "No page filter specified. Will analyze all pages."
+}
+Write-Host ""
 
 # 3) Config & Geoapify API key
 function Get-GeoapifyApiKey {
@@ -298,6 +312,19 @@ foreach ($e in $entries) {
 Write-Progress -Id 4 -Activity "Determining pages and keys" -Completed
 Write-Info "Pages and keys determined: $__entriesDone entries."
 
+# 9.5) Apply page filter if specified
+if ($PageFilter -and $PageFilter.Trim().Length -gt 0) {
+    $filterText = $PageFilter.Trim()
+    Write-Info "Filtering entries by page URL containing: '$filterText'..."
+    $beforeFilterCount = $entries.Count
+    $entries = @($entries | Where-Object { $_.Path -and $_.Path -like "*$filterText*" })
+    Write-Info "After filtering: $($entries.Count) entries (was $beforeFilterCount)"
+    if ($entries.Count -eq 0) {
+        Write-Info "No entries match the page filter '$filterText'. Exiting."
+        exit 0
+    }
+}
+
 # 10) Geoapify API key and IP geo resolution
 Write-Info "Collecting unique IPs..."
 $ipSet = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -493,7 +520,26 @@ try {
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Done" -PercentComplete 100
 Write-Progress -Id 8 -Activity "Computing aggregations" -Completed
 
-# 12) Markdown report generation
+# 12) Generate dynamic report filename
+$reportFileName = "report"
+if ($startTime -and $endTime) {
+    $startStr = $startTime.ToString('yyyy-MM-dd')
+    $endStr = $endTime.ToString('yyyy-MM-dd')
+    if ($startStr -eq $endStr) {
+        $reportFileName += "_$startStr"
+    } else {
+        $reportFileName += "_$startStr" + "_to_" + "$endStr"
+    }
+}
+if ($PageFilter -and $PageFilter.Trim().Length -gt 0) {
+    # Sanitize page filter for filename (remove invalid characters)
+    $sanitized = $PageFilter.Trim() -replace '[\\/:*?"<>|]', '_'
+    $reportFileName += "_$sanitized"
+}
+$reportFileName += ".md"
+$ReportPath = Join-Path $ScriptRoot $reportFileName
+
+# 13) Markdown report generation
 Write-Info "Writing report to $ReportPath..."
 $sb = New-Object System.Text.StringBuilder
 $nowStr = (Get-Date).ToString('yyyy-MM-dd HH:mm')
@@ -504,6 +550,9 @@ $logCount = $logFiles.Count
 [void]$sb.AppendLine("Generated at: $nowStr  ")
 [void]$sb.AppendLine("Log folder: ./logs  ")
 [void]$sb.AppendLine("Log files processed: $logCount")
+if ($PageFilter -and $PageFilter.Trim().Length -gt 0) {
+    [void]$sb.AppendLine("**Page filter applied:** *$($PageFilter.Trim())*")
+}
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('---')
 [void]$sb.AppendLine('')
@@ -593,4 +642,4 @@ if ($pageStatsTop.Count -gt 0) {
 
 [System.IO.File]::WriteAllText($ReportPath, $sb.ToString(), [System.Text.Encoding]::UTF8)
 
-Write-Info "Done. Open report.md in any text editor or on GitHub to view the analytics."
+Write-Info "Done. Open $reportFileName in any text editor or on GitHub to view the analytics."
