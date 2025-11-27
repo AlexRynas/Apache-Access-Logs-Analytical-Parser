@@ -11,6 +11,10 @@ $ConfigPath = Join-Path $ScriptRoot "config.json"
 $CachePath  = Join-Path $ScriptRoot "ip_cache.json"
 $ReportPath = Join-Path $ScriptRoot "report.md"
 
+# Precompile the Apache combined log line regex for performance
+$script:ApacheLogPattern = '^(?<ip>\S+)\s+\S+\s+\S+\s+\[(?<time>[^\]]+)\]\s+"(?<method>\S+)\s+(?<url>\S+)\s+(?<protocol>[^"]+)"\s+(?<status>\d{3})\s+(?<bytes>\S+)\s+"(?<referrer>[^"]*)"\s+"(?<agent>[^"]*)"'
+$script:LogLineRegex = New-Object System.Text.RegularExpressions.Regex ($script:ApacheLogPattern, [System.Text.RegularExpressions.RegexOptions]::Compiled)
+
 # Helper: Write section header to console for user-friendly output
 function Write-Info {
     param([string]$Message)
@@ -72,8 +76,7 @@ function Parse-ApacheLogLine {
     param([string]$Line)
     if (-not $Line) { return $null }
 
-    $pattern = '^(?<ip>\S+)\s+\S+\s+\S+\s+\[(?<time>[^\]]+)\]\s+"(?<method>\S+)\s+(?<url>\S+)\s+(?<protocol>[^"]+)"\s+(?<status>\d{3})\s+(?<bytes>\S+)\s+"(?<referrer>[^"]*)"\s+"(?<agent>[^"]*)"'
-    $m = [System.Text.RegularExpressions.Regex]::Match($Line, $pattern)
+    $m = $script:LogLineRegex.Match($Line)
     if (-not $m.Success) { return $null }
 
     $ip        = $m.Groups['ip'].Value
@@ -205,16 +208,60 @@ function New-Bar {
     return ('#' * $length)
 }
 
-# 8) Read and parse logs
-$entries = @()
+# 8) Read and parse logs (streaming with progress for large files)
+$entries = New-Object System.Collections.Generic.List[object]
 $parsedLines = 0
 $skippedLines = 0
+$_totalBytes = ($logFiles | Measure-Object -Property Length -Sum).Sum
+$_bytesDone = 0
+$_fileIndex = 0
 foreach ($file in $logFiles) {
-    foreach ($line in Get-Content -LiteralPath $file.FullName -Encoding UTF8) {
-        $e = Parse-ApacheLogLine -Line $line
-        if ($null -ne $e) { $entries += $e; $parsedLines++ } else { $skippedLines++ }
+    $_fileIndex++
+    $fileLen = (Get-Item -LiteralPath $file.FullName).Length
+    $fs = $null
+    $sr = $null
+    try {
+        $fs = [System.IO.File]::Open($file.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $sr = New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::UTF8, $true)
+        $enc = $sr.CurrentEncoding
+        if ($null -eq $enc) { $enc = [System.Text.Encoding]::UTF8 }
+        $bytesReadInFile = 0L
+        $lineCounter = 0
+        while (-not $sr.EndOfStream) {
+            $line = $sr.ReadLine()
+            if ($null -ne $line) {
+                $e = Parse-ApacheLogLine -Line $line
+                if ($null -ne $e) { [void]$entries.Add($e); $parsedLines++ } else { $skippedLines++ }
+                # Approximate bytes consumed (line bytes + newline). Use 1 byte newline to avoid overshoot.
+                $bytesReadInFile += [long]($enc.GetByteCount($line) + 1)
+            }
+            $lineCounter++
+            if (($lineCounter % 2000) -eq 0) {
+                $filePct = if ($fileLen -gt 0) { [int]((([double]$bytesReadInFile / [double]$fileLen) * 100)) } else { 0 }
+                $overall = $_bytesDone + $bytesReadInFile
+                $overallPct = if ($_totalBytes -gt 0) { [int]((([double]$overall / [double]$_totalBytes) * 100)) } else { 0 }
+                Write-Progress -Id 1 -Activity "Parsing log files ($_fileIndex/$($logFiles.Count))" -Status "$overallPct% overall" -PercentComplete $overallPct
+                Write-Progress -Id 2 -ParentId 1 -Activity "Reading $($file.Name)" -Status "$filePct% of file" -PercentComplete $filePct
+            }
+        }
+        # Final update per file
+        $filePct = 100
+        $overall = $_bytesDone + $fileLen
+        $overallPct = if ($_totalBytes -gt 0) { [int]((([double]$overall / [double]$_totalBytes) * 100)) } else { 100 }
+        Write-Progress -Id 1 -Activity "Parsing log files ($_fileIndex/$($logFiles.Count))" -Status "$overallPct% overall" -PercentComplete $overallPct
+        Write-Progress -Id 2 -ParentId 1 -Activity "Reading $($file.Name)" -Status "$filePct% of file" -PercentComplete $filePct
+    }
+    catch {
+        Write-Warning "Failed to read $($file.Name): $($_.Exception.Message)"
+    }
+    finally {
+        if ($sr) { $sr.Dispose() }
+        elseif ($fs) { $fs.Dispose() }
+        $_bytesDone += $fileLen
     }
 }
+Write-Progress -Id 2 -ParentId 1 -Activity "Reading files" -Completed
+Write-Progress -Id 1 -Activity "Parsing log files" -Completed
 Write-Info "Parsed $parsedLines entries from $($logFiles.Count) files, skipped $skippedLines lines."
 if ($entries.Count -eq 0) {
     Write-Info "No valid entries parsed. Ensure logs are in Apache combined format."
@@ -245,7 +292,15 @@ $apiKey = Get-GeoapifyApiKey
 $ipCache = Load-IpCache
 $uniqueIps = $entries | Select-Object -ExpandProperty IpAddress | Sort-Object -Unique
 Write-Info "Resolving geo information for $($uniqueIps.Count) unique IPs (using Geoapify)..."
-foreach ($ip in $uniqueIps) { [void](Get-GeoInfoForIP -IpAddress $ip -ApiKey $apiKey -IpCache $ipCache) }
+$_i = 0
+$_n = $uniqueIps.Count
+foreach ($ip in $uniqueIps) {
+    $_i++
+    [void](Get-GeoInfoForIP -IpAddress $ip -ApiKey $apiKey -IpCache $ipCache)
+    $pct = if ($_n -gt 0) { [int](($_i / $_n) * 100) } else { 100 }
+    Write-Progress -Id 3 -Activity "Resolving geo information" -Status "$_i/$_n" -PercentComplete $pct
+}
+Write-Progress -Id 3 -Activity "Resolving geo information" -Completed
 Save-IpCache -IpCache $ipCache
 
 # Attach geo info to each entry
@@ -403,7 +458,7 @@ if ($pageStatsTop.Count -gt 0) {
 [void]$sb.AppendLine('## 5. Notes')
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('- Geo data powered by Geoapify IP Geolocation API.')
-[void]$sb.AppendLine('- IP -> Geo results cached in ip_cache.json to reduce API usage.')
+[void]$sb.AppendLine('- IP to Geo results cached in ip_cache.json to reduce API usage.')
 
 [System.IO.File]::WriteAllText($ReportPath, $sb.ToString(), [System.Text.Encoding]::UTF8)
 
