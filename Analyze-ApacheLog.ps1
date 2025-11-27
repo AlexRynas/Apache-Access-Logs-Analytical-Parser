@@ -512,7 +512,7 @@ $logCount = $logFiles.Count
 [void]$sb.AppendLine("- Total requests: $totalRequests")
 [void]$sb.AppendLine("- Unique IPs: $uniqueIpsCount")
 if ($startTime -and $endTime) {
-    [void]$sb.AppendLine("- Time range: " + $startTime.ToString('yyyy-MM-dd HH:mm:ss') + " → " + $endTime.ToString('yyyy-MM-dd HH:mm:ss'))
+    [void]$sb.AppendLine("- Time range: " + $startTime.ToString('yyyy-MM-dd HH:mm:ss') + " -> " + $endTime.ToString('yyyy-MM-dd HH:mm:ss'))
 } else {
     [void]$sb.AppendLine("- Time range: Unknown")
 }
@@ -525,14 +525,17 @@ if ($startTime -and $endTime) {
 # Top Countries
 [void]$sb.AppendLine('## 2. Top Countries')
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine('| Rank | Country | ISO | Unique IPs | Requests | Bar |')
-[void]$sb.AppendLine('|------|---------|-----|------------|----------|-----|')
+[void]$sb.AppendLine('| Rank | Country            | ISO | Unique IPs | Requests | Bar                            |')
+[void]$sb.AppendLine('|------|--------------------|----|------------|----------|--------------------------------|')
 if ($countryStats.Count -gt 0) {
     $rank = 1
     foreach ($c in ($countryStats | Select-Object -First 10)) {
-        $iso = if ($c.CountryCode) { $c.CountryCode } else { '' }
-        $bar = New-Bar -Value $c.Requests -Max $maxCountryRequests -MaxWidth 30
-        [void]$sb.AppendLine("| $rank    | $($c.CountryName) | $iso  | $($c.UniqueIps)        | $($c.Requests)     | $bar |")
+        $countryName = $c.CountryName.PadRight(18)
+        $iso = if ($c.CountryCode) { $c.CountryCode.PadRight(2) } else { '  ' }
+        $uniqueIps = $c.UniqueIps.ToString().PadLeft(10)
+        $requests = $c.Requests.ToString().PadLeft(8)
+        $bar = (New-Bar -Value $c.Requests -Max $maxCountryRequests -MaxWidth 30).PadRight(30)
+        [void]$sb.AppendLine("| $($rank.ToString().PadLeft(4)) | $countryName | $iso | $uniqueIps | $requests | $bar |")
         $rank++
     }
 } else {
@@ -545,12 +548,16 @@ if ($countryStats.Count -gt 0) {
 # Top Cities
 [void]$sb.AppendLine('## 3. Top Cities')
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine('| Rank | Country | City      | Unique IPs | Requests |')
-[void]$sb.AppendLine('|------|---------|-----------|------------|----------|')
+[void]$sb.AppendLine('| Rank | Country            | City                   | Unique IPs | Requests |')
+[void]$sb.AppendLine('|------|--------------------|-----------------------|------------|----------|')
 if ($cityStatsTop.Count -gt 0) {
     $rank = 1
     foreach ($ct in $cityStatsTop) {
-        [void]$sb.AppendLine("| $rank    | $($ct.CountryName) | $($ct.CityName) | $($ct.UniqueIps)        | $($ct.Requests)     |")
+        $countryName = $ct.CountryName.PadRight(18)
+        $cityName = $ct.CityName.Trim().PadRight(21)
+        $uniqueIps = $ct.UniqueIps.ToString().PadLeft(10)
+        $requests = $ct.Requests.ToString().PadLeft(8)
+        [void]$sb.AppendLine("| $($rank.ToString().PadLeft(4)) | $countryName | $cityName | $uniqueIps | $requests |")
         $rank++
     }
 } else {
@@ -563,13 +570,16 @@ if ($cityStatsTop.Count -gt 0) {
 # Top Pages
 [void]$sb.AppendLine('## 4. Top Pages (index.htm / index.html)')
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine('| Rank | Page (Path)                             | Unique IPs | Pageviews | Bar        |')
-[void]$sb.AppendLine('|------|-----------------------------------------|------------|-----------|------------|')
+[void]$sb.AppendLine('| Rank | Page (Path)                                      | Unique IPs | Pageviews | Bar                            |')
+[void]$sb.AppendLine('|------|--------------------------------------------------|------------|-----------|--------------------------------|')
 if ($pageStatsTop.Count -gt 0) {
     $rank = 1
     foreach ($pg in $pageStatsTop) {
-        $bar = New-Bar -Value $pg.Requests -Max $maxPageRequests -MaxWidth 30
-        [void]$sb.AppendLine("| $rank    | $($pg.PageKey) | $($pg.UniqueIps)        |  $($pg.Requests)     | $bar |")
+        $pagePath = $pg.PageKey.PadRight(48)
+        $uniqueIps = $pg.UniqueIps.ToString().PadLeft(10)
+        $pageviews = $pg.Requests.ToString().PadLeft(9)
+        $bar = (New-Bar -Value $pg.Requests -Max $maxPageRequests -MaxWidth 30).PadRight(30)
+        [void]$sb.AppendLine("| $($rank.ToString().PadLeft(4)) | $pagePath | $uniqueIps | $pageviews | $bar |")
         $rank++
     }
 } else {
@@ -580,12 +590,6 @@ if ($pageStatsTop.Count -gt 0) {
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('---')
 [void]$sb.AppendLine('')
-
-# Notes
-[void]$sb.AppendLine('## 5. Notes')
-[void]$sb.AppendLine('')
-[void]$sb.AppendLine('- Geo data powered by Geoapify IP Geolocation API.')
-[void]$sb.AppendLine('- IP to Geo results cached in ip_cache.json to reduce API usage.')
 
 [System.IO.File]::WriteAllText($ReportPath, $sb.ToString(), [System.Text.Encoding]::UTF8)
 
