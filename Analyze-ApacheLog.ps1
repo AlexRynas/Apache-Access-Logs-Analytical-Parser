@@ -352,13 +352,11 @@ Write-Info "Geo data attached. Computing aggregations..."
 # Overview
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Starting..." -PercentComplete 0
 try {
-    Write-Host "[DEBUG] Computing overview statistics..." -ForegroundColor Cyan
     $totalRequests   = $entries.Count
     $uniqueIpsCount  = $uniqueIps.Count
     $timestamps      = @($entries | Select-Object -ExpandProperty Timestamp | Where-Object { $_ -ne $null } | Sort-Object)
     $startTime       = if ($timestamps.Count -gt 0) { $timestamps[0] } else { $null }
     $endTime         = if ($timestamps.Count -gt 0) { $timestamps[$timestamps.Count-1] } else { $null }
-    Write-Host "[DEBUG] Overview complete. Total requests: $totalRequests" -ForegroundColor Cyan
 } catch {
     Write-Warning "[ERROR] Failed during overview computation: $($_.Exception.Message)"
     Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
@@ -368,10 +366,8 @@ try {
 # Countries
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by country..." -PercentComplete 5
 try {
-    Write-Host "[DEBUG] Starting country grouping..." -ForegroundColor Cyan
     $countryStats = @()
     $countryGroups = @($entries | Group-Object -Property CountryName)
-    Write-Host "[DEBUG] Found $($countryGroups.Count) country groups" -ForegroundColor Cyan
     $groupIdx = 0
     foreach ($g in $countryGroups) {
         $groupIdx++
@@ -393,17 +389,14 @@ try {
             Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by country ($groupIdx/$($countryGroups.Count))" -PercentComplete $pct
         }
     }
-    Write-Host "[DEBUG] Country grouping complete" -ForegroundColor Cyan
 } catch {
     Write-Warning "[ERROR] Failed during country aggregation: $($_.Exception.Message)"
     throw
 }
 try {
-    Write-Host "[DEBUG] Sorting country stats..." -ForegroundColor Cyan
     $countryStats = @($countryStats | Sort-Object -Property Requests -Descending)
     $maxCountryRequests = if (@($countryStats).Count -gt 0) { ($countryStats | Select-Object -ExpandProperty Requests | Measure-Object -Maximum).Maximum } else { 0 }
     $topCountry = if (@($countryStats).Count -gt 0) { $countryStats[0] } else { $null }
-    Write-Host "[DEBUG] Country stats sorted: $($countryStats.Count) countries" -ForegroundColor Cyan
 } catch {
     Write-Warning "[ERROR] Failed during country stats sorting: $($_.Exception.Message)"
     Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
@@ -425,10 +418,8 @@ foreach ($e in $entries) {
 }
 Write-Progress -Id 7 -Activity "Preparing city keys" -Completed
 try {
-    Write-Host "[DEBUG] Starting city grouping..." -ForegroundColor Cyan
     $cityStats = @()
     $cityGroups = @($entries | Group-Object -Property CountryCityKey)
-    Write-Host "[DEBUG] Found $($cityGroups.Count) city groups" -ForegroundColor Cyan
     $groupIdx = 0
     foreach ($g in $cityGroups) {
         $groupIdx++
@@ -449,16 +440,13 @@ try {
             Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by city ($groupIdx/$($cityGroups.Count))" -PercentComplete $pct
         }
     }
-    Write-Host "[DEBUG] City grouping complete" -ForegroundColor Cyan
 } catch {
     Write-Warning "[ERROR] Failed during city aggregation: $($_.Exception.Message)"
     throw
 }
 try {
-    Write-Host "[DEBUG] Sorting city stats..." -ForegroundColor Cyan
     $cityStats = @($cityStats | Sort-Object -Property Requests -Descending)
     $cityStatsTop = if (@($cityStats).Count -gt 20) { @($cityStats[0..19]) } else { @($cityStats) }
-    Write-Host "[DEBUG] City stats sorted: $($cityStats.Count) cities" -ForegroundColor Cyan
 } catch {
     Write-Warning "[ERROR] Failed during city stats sorting: $($_.Exception.Message)"
     Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
@@ -468,12 +456,9 @@ Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by pag
 
 # Pages (index.htm / index.html)
 try {
-    Write-Host "[DEBUG] Starting page grouping..." -ForegroundColor Cyan
     $pageEntries = $entries | Where-Object { $_.IsPage -eq $true -and $_.PageKey }
-    Write-Host "[DEBUG] Found $($pageEntries.Count) page entries" -ForegroundColor Cyan
     $pageStats = @()
     $pageGroups = @($pageEntries | Group-Object -Property PageKey)
-    Write-Host "[DEBUG] Found $($pageGroups.Count) page groups" -ForegroundColor Cyan
     $groupIdx = 0
     foreach ($g in $pageGroups) {
         $groupIdx++
@@ -491,18 +476,15 @@ try {
             Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by page ($groupIdx/$($pageGroups.Count))" -PercentComplete $pct
         }
     }
-    Write-Host "[DEBUG] Page grouping complete" -ForegroundColor Cyan
 } catch {
     Write-Warning "[ERROR] Failed during page aggregation: $($_.Exception.Message)"
     throw
 }
 try {
-    Write-Host "[DEBUG] Sorting page stats..." -ForegroundColor Cyan
     $pageStats = @($pageStats | Sort-Object -Property Requests -Descending)
     $maxPageRequests = if (@($pageStats).Count -gt 0) { ($pageStats | Select-Object -ExpandProperty Requests | Measure-Object -Maximum).Maximum } else { 0 }
     $pageStatsTop = if (@($pageStats).Count -gt 20) { @($pageStats[0..19]) } else { @($pageStats) }
     $topPage = if (@($pageStats).Count -gt 0) { $pageStats[0] } else { $null }
-    Write-Host "[DEBUG] Page stats sorted: $($pageStats.Count) pages" -ForegroundColor Cyan
 } catch {
     Write-Warning "[ERROR] Failed during page stats sorting: $($_.Exception.Message)"
     Write-Warning "[ERROR] Line: $($_.InvocationInfo.ScriptLineNumber)"
@@ -510,7 +492,6 @@ try {
 }
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Done" -PercentComplete 100
 Write-Progress -Id 8 -Activity "Computing aggregations" -Completed
-Write-Host "[DEBUG] All aggregations complete!" -ForegroundColor Green
 
 # 12) Markdown report generation
 Write-Info "Writing report to $ReportPath..."
