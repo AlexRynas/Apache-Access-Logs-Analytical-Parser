@@ -311,7 +311,7 @@ foreach ($e in $entries) {
     }
 }
 Write-Progress -Id 5 -Activity "Collecting unique IPs" -Completed
-$uniqueIps = @($ipSet)
+$uniqueIps = @($ipSet.GetEnumerator() | ForEach-Object { $_ })
 Write-Info "Unique IPs: $($uniqueIps.Count)"
 
 $apiKey = Get-GeoapifyApiKey
@@ -349,25 +349,28 @@ Write-Progress -Id 6 -Activity "Attaching geo data to entries" -Completed
 Write-Info "Geo data attached. Computing aggregations..."
 
 # 11) Aggregations
+# Show coarse progress for aggregation phases
+Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by country" -PercentComplete 5
 # Overview
 $totalRequests   = $entries.Count
 $uniqueIpsCount  = $uniqueIps.Count
-$timestamps      = $entries | Select-Object -ExpandProperty Timestamp | Where-Object { $_ -ne $null } | Sort-Object
+$timestamps      = @($entries | Select-Object -ExpandProperty Timestamp | Where-Object { $_ -ne $null } | Sort-Object)
 $startTime       = if ($timestamps.Count -gt 0) { $timestamps[0] } else { $null }
 $endTime         = if ($timestamps.Count -gt 0) { $timestamps[$timestamps.Count-1] } else { $null }
 
 # Countries
 $countryStats = @()
-foreach ($g in ($entries | Group-Object -Property CountryName)) {
+foreach ($g in (@($entries | Group-Object -Property CountryName))) {
     $country = if ($g.Name) { $g.Name } else { "Unknown" }
     $code    = ($g.Group | Where-Object { $_.CountryCode } | Select-Object -ExpandProperty CountryCode -First 1)
     $req     = $g.Count
     $uniqIps = ($g.Group | Select-Object -ExpandProperty IpAddress | Sort-Object -Unique).Count
     $countryStats += [PSCustomObject]@{ CountryName = $country; CountryCode = $code; Requests = $req; UniqueIps = $uniqIps }
 }
-$countryStats = $countryStats | Sort-Object -Property Requests -Descending
-$maxCountryRequests = if ($countryStats.Count -gt 0) { ($countryStats | Select-Object -ExpandProperty Requests | Measure-Object -Maximum).Maximum } else { 0 }
-$topCountry = if ($countryStats.Count -gt 0) { $countryStats[0] } else { $null }
+$countryStats = @($countryStats | Sort-Object -Property Requests -Descending)
+$maxCountryRequests = if (@($countryStats).Count -gt 0) { ($countryStats | Select-Object -ExpandProperty Requests | Measure-Object -Maximum).Maximum } else { 0 }
+$topCountry = if (@($countryStats).Count -gt 0) { $countryStats[0] } else { $null }
+Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by city" -PercentComplete 33
 
 # Cities
 $__entriesDone = 0
@@ -391,8 +394,9 @@ foreach ($g in ($entries | Group-Object -Property CountryCityKey)) {
     $uniqIps = ($g.Group | Select-Object -ExpandProperty IpAddress | Sort-Object -Unique).Count
     $cityStats += [PSCustomObject]@{ CountryName = $country; CityName = $city; Requests = $req; UniqueIps = $uniqIps }
 }
-$cityStats = $cityStats | Sort-Object -Property Requests -Descending
-$cityStatsTop = if ($cityStats.Count -gt 20) { $cityStats[0..19] } else { $cityStats }
+$cityStats = @($cityStats | Sort-Object -Property Requests -Descending)
+$cityStatsTop = if (@($cityStats).Count -gt 20) { @($cityStats[0..19]) } else { @($cityStats) }
+Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Grouping by page" -PercentComplete 66
 
 # Pages (index.htm / index.html)
 $pageEntries = $entries | Where-Object { $_.IsPage -eq $true -and $_.PageKey }
@@ -402,10 +406,12 @@ foreach ($g in ($pageEntries | Group-Object -Property PageKey)) {
     $uniqIps = ($g.Group | Select-Object -ExpandProperty IpAddress | Sort-Object -Unique).Count
     $pageStats += [PSCustomObject]@{ PageKey = $g.Name; Requests = $req; UniqueIps = $uniqIps }
 }
-$pageStats = $pageStats | Sort-Object -Property Requests -Descending
-$maxPageRequests = if ($pageStats.Count -gt 0) { ($pageStats | Select-Object -ExpandProperty Requests | Measure-Object -Maximum).Maximum } else { 0 }
-$pageStatsTop = if ($pageStats.Count -gt 20) { $pageStats[0..19] } else { $pageStats }
-$topPage = if ($pageStats.Count -gt 0) { $pageStats[0] } else { $null }
+$pageStats = @($pageStats | Sort-Object -Property Requests -Descending)
+$maxPageRequests = if (@($pageStats).Count -gt 0) { ($pageStats | Select-Object -ExpandProperty Requests | Measure-Object -Maximum).Maximum } else { 0 }
+$pageStatsTop = if (@($pageStats).Count -gt 20) { @($pageStats[0..19]) } else { @($pageStats) }
+$topPage = if (@($pageStats).Count -gt 0) { $pageStats[0] } else { $null }
+Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Done" -PercentComplete 100
+Write-Progress -Id 8 -Activity "Computing aggregations" -Completed
 
 # 12) Markdown report generation
 Write-Info "Writing report to $ReportPath..."
