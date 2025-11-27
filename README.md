@@ -20,7 +20,7 @@ A small, self-contained Apache access log analyzer for Windows. It uses a PowerS
 2. Place your Apache access log files (`*.log`, `*.txt`) into the `logs` folder.
    - If the folder doesn't exist yet, run the script once; it will create `logs/` and ask you to re-run after adding files.
 3. Double-click `run_report.bat`.
-4. **Optional**: When prompted, enter a partial URL to filter analytics for a specific page (e.g., "2025EarthPartnerPrize"), or press Enter to analyze all pages.
+4. **Optional**: When prompted, enter a partial URL to filter analytics for a specific page (e.g., "2025SomePage"), or press Enter to analyze all pages.
 5. If prompted, paste your Geoapify API key. The script will save it to `config.json`.
 6. When done, open the generated report file in the `reports` folder (e.g., `reports/report_2025-11-01_to_2025-11-07.md`).
 
@@ -47,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File ".\Analyze-ApacheLog.ps1"
 - **Report files** – Saved in the `reports/` folder with dynamic names based on the time period and page filter (if used):
   - `reports/report_2025-11-01_to_2025-11-07.md` (for logs spanning multiple days)
   - `reports/report_2025-11-27.md` (for logs from a single day)
-  - `reports/report_2025-11-01_to_2025-11-07_2025EarthPartnerPrize.md` (when using page filter)
+  - `reports/report_2025-11-01_to_2025-11-07_2025SomePage.md` (when using page filter)
 - `config.json` – stores your Geoapify API key
 - `ip_cache.json` – caches IP → Country/City to reduce API calls
 
@@ -94,7 +94,7 @@ Log files processed: 2
 
 | Rank | Page (Path)                             | Unique IPs | Pageviews | Bar        |
 |------|-----------------------------------------|------------|-----------|------------|
-| 1    | /EarthPartner/BorgoLaudatoSi/index.htm  | 123        |  9876     | ########## |
+| 1    | /SomePage/SomeSubRoute/index.htm        | 123        |  9876     | ########## |
 | 2    | /SomeOtherSite/index.html               |  45        |  1234     | ####       |
 
 ---
