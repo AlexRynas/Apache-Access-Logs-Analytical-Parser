@@ -269,6 +269,7 @@ if ($entries.Count -eq 0) {
 }
 
 # 9) Determine pages and page keys (with progress)
+Write-Info "Determining pages and page keys..."
 $__entriesTotal = $entries.Count
 $__entriesDone = 0
 foreach ($e in $entries) {
@@ -295,11 +296,26 @@ foreach ($e in $entries) {
     }
 }
 Write-Progress -Id 4 -Activity "Determining pages and keys" -Completed
+Write-Info "Pages and keys determined: $__entriesDone entries."
 
 # 10) Geoapify API key and IP geo resolution
+Write-Info "Collecting unique IPs..."
+$ipSet = New-Object 'System.Collections.Generic.HashSet[string]'
+$__entriesDone = 0
+foreach ($e in $entries) {
+    $__entriesDone++
+    if ($e.IpAddress) { [void]$ipSet.Add([string]$e.IpAddress) }
+    if (($__entriesDone % 10000) -eq 0 -or $__entriesDone -eq $__entriesTotal) {
+        $pct = if ($__entriesTotal -gt 0) { [int]((($__entriesDone / $__entriesTotal) * 100)) } else { 100 }
+        Write-Progress -Id 5 -Activity "Collecting unique IPs" -Status "$__entriesDone/$__entriesTotal" -PercentComplete $pct
+    }
+}
+Write-Progress -Id 5 -Activity "Collecting unique IPs" -Completed
+$uniqueIps = @($ipSet)
+Write-Info "Unique IPs: $($uniqueIps.Count)"
+
 $apiKey = Get-GeoapifyApiKey
 $ipCache = Load-IpCache
-$uniqueIps = $entries | Select-Object -ExpandProperty IpAddress | Sort-Object -Unique
 Write-Info "Resolving geo information for $($uniqueIps.Count) unique IPs (using Geoapify)..."
 $_i = 0
 $_n = $uniqueIps.Count
@@ -310,10 +326,13 @@ foreach ($ip in $uniqueIps) {
     Write-Progress -Id 3 -Activity "Resolving geo information" -Status "$_i/$_n" -PercentComplete $pct
 }
 Write-Progress -Id 3 -Activity "Resolving geo information" -Completed
+Write-Info "Geo resolution complete. Attaching geo data to entries..."
 Save-IpCache -IpCache $ipCache
 
 # Attach geo info to each entry
+$__entriesDone = 0
 foreach ($e in $entries) {
+    $__entriesDone++
     $ip = $e.IpAddress
     $info = $null
     if ($ipCache.ContainsKey($ip)) { $info = $ipCache[$ip] }
@@ -321,7 +340,13 @@ foreach ($e in $entries) {
     $e | Add-Member -MemberType NoteProperty -Name CountryName -Value ($info.CountryName)
     $e | Add-Member -MemberType NoteProperty -Name CountryCode -Value ($info.CountryCode)
     $e | Add-Member -MemberType NoteProperty -Name CityName    -Value ($info.CityName)
+    if (($__entriesDone % 10000) -eq 0 -or $__entriesDone -eq $entries.Count) {
+        $pct = if ($entries.Count -gt 0) { [int]((($__entriesDone / $entries.Count) * 100)) } else { 100 }
+        Write-Progress -Id 6 -Activity "Attaching geo data to entries" -Status "$__entriesDone/$($entries.Count)" -PercentComplete $pct
+    }
 }
+Write-Progress -Id 6 -Activity "Attaching geo data to entries" -Completed
+Write-Info "Geo data attached. Computing aggregations..."
 
 # 11) Aggregations
 # Overview
@@ -345,11 +370,18 @@ $maxCountryRequests = if ($countryStats.Count -gt 0) { ($countryStats | Select-O
 $topCountry = if ($countryStats.Count -gt 0) { $countryStats[0] } else { $null }
 
 # Cities
+$__entriesDone = 0
 foreach ($e in $entries) {
+    $__entriesDone++
     if (-not $e.CountryName) { $e.CountryName = "Unknown" }
     if (-not $e.CityName)    { $e.CityName    = "Unknown" }
     $e | Add-Member -MemberType NoteProperty -Name CountryCityKey -Value ($e.CountryName + "|" + $e.CityName)
+    if (($__entriesDone % 25000) -eq 0 -or $__entriesDone -eq $entries.Count) {
+        $pct = if ($entries.Count -gt 0) { [int]((($__entriesDone / $entries.Count) * 100)) } else { 100 }
+        Write-Progress -Id 7 -Activity "Preparing city keys" -Status "$__entriesDone/$($entries.Count)" -PercentComplete $pct
+    }
 }
+Write-Progress -Id 7 -Activity "Preparing city keys" -Completed
 $cityStats = @()
 foreach ($g in ($entries | Group-Object -Property CountryCityKey)) {
     $parts = $g.Name.Split('|')
