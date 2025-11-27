@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 # Determine script root and key paths
 $ScriptRoot = Split-Path -Parent $PSCommandPath
 $LogDir     = Join-Path $ScriptRoot "logs"
+$ReportsDir = Join-Path $ScriptRoot "reports"
 $ConfigPath = Join-Path $ScriptRoot "config.json"
 $CachePath  = Join-Path $ScriptRoot "ip_cache.json"
 
@@ -520,7 +521,13 @@ try {
 Write-Progress -Id 8 -Activity "Computing aggregations" -Status "Done" -PercentComplete 100
 Write-Progress -Id 8 -Activity "Computing aggregations" -Completed
 
-# 12) Generate dynamic report filename
+# 12) Ensure reports folder exists
+if (-not (Test-Path -LiteralPath $ReportsDir)) {
+    New-Item -ItemType Directory -Path $ReportsDir | Out-Null
+    Write-Info "Created reports folder: $ReportsDir"
+}
+
+# 13) Generate dynamic report filename
 $reportFileName = "report"
 if ($startTime -and $endTime) {
     $startStr = $startTime.ToString('yyyy-MM-dd')
@@ -537,9 +544,9 @@ if ($PageFilter -and $PageFilter.Trim().Length -gt 0) {
     $reportFileName += "_$sanitized"
 }
 $reportFileName += ".md"
-$ReportPath = Join-Path $ScriptRoot $reportFileName
+$ReportPath = Join-Path $ReportsDir $reportFileName
 
-# 13) Markdown report generation
+# 14) Markdown report generation
 Write-Info "Writing report to $ReportPath..."
 $sb = New-Object System.Text.StringBuilder
 $nowStr = (Get-Date).ToString('yyyy-MM-dd HH:mm')

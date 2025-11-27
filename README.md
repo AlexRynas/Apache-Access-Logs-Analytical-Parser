@@ -22,7 +22,7 @@ A small, self-contained Apache access log analyzer for Windows. It uses a PowerS
 3. Double-click `run_report.bat`.
 4. **Optional**: When prompted, enter a partial URL to filter analytics for a specific page (e.g., "2025EarthPartnerPrize"), or press Enter to analyze all pages.
 5. If prompted, paste your Geoapify API key. The script will save it to `config.json`.
-6. When done, open the generated report file (e.g., `report_2025-11-01_to_2025-11-07.md`) for the analytics.
+6. When done, open the generated report file in the `reports` folder (e.g., `reports/report_2025-11-01_to_2025-11-07.md`).
 
 ### Alternative: Run from PowerShell
 
@@ -44,10 +44,10 @@ powershell -ExecutionPolicy Bypass -File ".\Analyze-ApacheLog.ps1"
 
 ## Output Files
 
-- **Report file** – Generated with a dynamic name based on the time period and page filter (if used):
-  - `report_2025-11-01_to_2025-11-07.md` (for logs spanning multiple days)
-  - `report_2025-11-27.md` (for logs from a single day)
-  - `report_2025-11-01_to_2025-11-07_2025EarthPartnerPrize.md` (when using `-PageFilter`)
+- **Report files** – Saved in the `reports/` folder with dynamic names based on the time period and page filter (if used):
+  - `reports/report_2025-11-01_to_2025-11-07.md` (for logs spanning multiple days)
+  - `reports/report_2025-11-27.md` (for logs from a single day)
+  - `reports/report_2025-11-01_to_2025-11-07_2025EarthPartnerPrize.md` (when using page filter)
 - `config.json` – stores your Geoapify API key
 - `ip_cache.json` – caches IP → Country/City to reduce API calls
 
