@@ -268,8 +268,11 @@ if ($entries.Count -eq 0) {
     exit 0
 }
 
-# 9) Determine pages and page keys
+# 9) Determine pages and page keys (with progress)
+$__entriesTotal = $entries.Count
+$__entriesDone = 0
 foreach ($e in $entries) {
+    $__entriesDone++
     $isPage = $false
     $pageKey = $null
     if ($e.Path) {
@@ -285,7 +288,13 @@ foreach ($e in $entries) {
     }
     $e | Add-Member -MemberType NoteProperty -Name IsPage -Value $isPage
     $e | Add-Member -MemberType NoteProperty -Name PageKey -Value $pageKey
+
+    if (($__entriesDone % 10000) -eq 0 -or $__entriesDone -eq $__entriesTotal) {
+        $pct = if ($__entriesTotal -gt 0) { [int]((($__entriesDone / $__entriesTotal) * 100)) } else { 100 }
+        Write-Progress -Id 4 -Activity "Determining pages and keys" -Status "$__entriesDone/$__entriesTotal" -PercentComplete $pct
+    }
 }
+Write-Progress -Id 4 -Activity "Determining pages and keys" -Completed
 
 # 10) Geoapify API key and IP geo resolution
 $apiKey = Get-GeoapifyApiKey
