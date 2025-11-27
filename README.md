@@ -69,7 +69,7 @@ Log files processed: 2
 | Rank | Country | ISO | Unique IPs | Requests | Bar |
 |------|---------|-----|------------|----------|-----|
 | 1    | Germany | DE  | 120        | 3210     | ########## |
-| 2    | Ukraine | UA  |  95        | 2845     | #######    |
+| 2    | France  | FR  |  95        | 2845     | #######    |
 
 ---
 
@@ -78,7 +78,7 @@ Log files processed: 2
 | Rank | Country | City      | Unique IPs | Requests |
 |------|---------|-----------|------------|----------|
 | 1    | Germany | Nuremberg | 45         | 350      |
-| 2    | Ukraine | Kyiv      | 38         | 290      |
+| 2    | France  | Paris     | 38         | 290      |
 
 ---
 
